@@ -1,0 +1,82 @@
+name: Deployment (Container)
+on:
+  push:
+    branches:
+      - main
+      - dev
+env:
+  CACHE_KEY: node-deps
+  MONGODB_DB_NAME: gha-demo
+jobs:
+  test:
+    environment: testing
+    runs-on: ubuntu-latest  # this machine will have the container, so it is ubuntu having a container
+    container:
+      image: node:16 # how is a container is defined, this image already has an operating system by default
+      #env:  #these variables are just for the container, are different from the othr env var some steps below
+      # Cuando defines un contenedor en el nivel de trabajo (job), como en este caso, GitHub Actions automáticamente ejecutará todos los pasos (steps) dentro de ese contenedor, esto se conoce como "contenedor de trabajo, GitHub Actions asumirá que todos los pasos que se ejecuten en ese trabajo deben ejecutarse dentro del contenedr
+    env:  # these variables are for the general work
+      MONGODB_CONNECTION_PROTOCOL: mongodb
+      MONGODB_CLUSTER_ADDRESS: mongodb  #using the label of the service container defined in the next configuration
+      #MONGODB_CLUSTER_ADDRESS: 127.0.0.1:27017 if it wouldnt be running on the container, should be match ports in services
+      MONGODB_USERNAME: root
+      MONGODB_PASSWORD: example
+      PORT: 8080
+      # the previous configuration only works if this job is running in a container
+    services: # find the explanation about services below
+      mongodg: # this is just a label
+        image: mongo  #official image in docker hub
+        #ports: this steps should be added if the steps wouldnt be running on that container
+        #  - 27017:27017
+        env: 
+          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_PASSWORD: password
+    steps:
+      - name: Get Code
+        uses: actions/checkout@v3
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ env.CACHE_KEY }}-${{ hashFiles('**/package-lock.json') }}
+      - name: Install dependencies
+        run: npm ci
+      - name: Run server
+        run: npm start & npx wait-on http://127.0.0.1:$PORT # requires MongoDB Atlas to accept requests from anywhere!
+      - name: Run tests
+        run: npm test
+      - name: Output information
+        run: |
+          echo "MONGODB_USERNAME: $MONGODB_USERNAME"
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Output information
+        env:
+          PORT: 3000
+        run: |        
+          echo "MONGODB_DB_NAME: $MONGODB_DB_NAME"
+          echo "MONGODB_USERNAME: $MONGODB_USERNAME"
+          echo "${{ env.PORT }}"
+
+# En GitHub Actions, services es una sección que te permite definir contenedores adicionales que se ejecutarán junto con tu trabajo (job). Estos contenedores se conocen como "servicios" y se utilizan para proporcionar dependencias o servicios externos que tu trabajo necesita para ejecutarse correctamente.
+# En el ejemplo que proporcionaste:
+# YAML
+# services:
+#   mongodb:  # Etiqueta para el servicio
+#     image: mongo  # Imagen oficial de MongoDB en Docker Hub
+#     env:
+#       MONGO_INITDB_ROOT_USERNAME: root
+#       MONGO_INITDB_ROOT_PASSWORD: password
+# Aquí, estás definiendo un servicio llamado mongodb que se basa en la imagen oficial de MongoDB en Docker Hub. El servicio se ejecutará en un contenedor separado del contenedor principal definido en el trabajo (job).
+# Los servicios son útiles cuando necesitas:
+# Bases de datos: Como en este caso, donde necesitas una instancia de MongoDB para probar tu aplicación.
+# Servicios de mensajería: Como RabbitMQ o Apache Kafka.
+# Servicios de caché: Como Redis.
+# Servicios de autenticación: Como OAuth o LDAP.
+# Al definir un servicio, GitHub Actions automáticamente:
+# Inicia el contenedor del servicio: Antes de ejecutar tu trabajo.
+# Expone los puertos: Para que tu trabajo pueda comunicarse con el servicio.
+# Proporciona variables de entorno: Para que puedas conectarte al servicio desde tu trabajo.
+# En este caso, el servicio mongodb se ejecutará en un contenedor separado, y tu trabajo podrá conectarse a él utilizando las variables de entorno definidas en la sección env. Por ejemplo, podrías utilizar la variable MONGO_INITDB_ROOT_USERNAME y MONGO_INITDB_ROOT_PASSWORD para conectarte a la base de datos MongoDB
