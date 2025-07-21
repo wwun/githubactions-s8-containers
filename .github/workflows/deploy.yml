@@ -10,26 +10,26 @@ env:
 jobs:
   test:
     environment: testing
-    runs-on: ubuntu-latest  # this machine will have the container, so it is ubuntu having a container
-    container:
-      image: node:16 # how is a container is defined, this image already has an operating system by default
+    runs-on: ubuntu-latest  # this machine will have the container, so it is ubuntu having a container, this is the runner
+    container:  # define un contenedor con la imagen node:16 para ejecutar el job test, ya tiene un sistema operativo por defecto
+      image: node:16 # how a container is defined, this image already has an operating system by default, se descarga de dockerhub, imagen oficial de nodejs qe incluye npm basada en linux
       #env:  #these variables are just for the container, are different from the othr env var some steps below
       # Cuando defines un contenedor en el nivel de trabajo (job), como en este caso, GitHub Actions automáticamente ejecutará todos los pasos (steps) dentro de ese contenedor, esto se conoce como "contenedor de trabajo, GitHub Actions asumirá que todos los pasos que se ejecuten en ese trabajo deben ejecutarse dentro del contenedr
-    env:  # these variables are for the general work
+    env:  # these variables are for the general work, para conectarse a la base de datos mongodb
       MONGODB_CONNECTION_PROTOCOL: mongodb
       MONGODB_CLUSTER_ADDRESS: mongodb  #using the label of the service container defined in the next configuration
       #MONGODB_CLUSTER_ADDRESS: 127.0.0.1:27017 if it wouldnt be running on the container, should be match ports in services
-      MONGODB_USERNAME: root
+      MONGODB_USERNAME: root  # credenciales para conectarse a la base de datos mongodb
       MONGODB_PASSWORD: example
       PORT: 8080
       # the previous configuration only works if this job is running in a container
     services: # find the explanation about services below
       mongodg: # this is just a label
-        image: mongo  #official image in docker hub
+        image: mongo  #official image in docker hub, esta es la imagen de la bd
         #ports: this steps should be added if the steps wouldnt be running on that container
         #  - 27017:27017
         env: 
-          MONGO_INITDB_ROOT_USERNAME: root
+          MONGO_INITDB_ROOT_USERNAME: root  # se usan para inicializar la base de datos MongoDB con un usuario root, n la base de datos mongodb cuando se inicia el contenedor del servicio
           MONGO_INITDB_ROOT_PASSWORD: password
     steps:
       - name: Get Code
@@ -80,3 +80,26 @@ jobs:
 # Expone los puertos: Para que tu trabajo pueda comunicarse con el servicio.
 # Proporciona variables de entorno: Para que puedas conectarte al servicio desde tu trabajo.
 # En este caso, el servicio mongodb se ejecutará en un contenedor separado, y tu trabajo podrá conectarse a él utilizando las variables de entorno definidas en la sección env. Por ejemplo, podrías utilizar la variable MONGO_INITDB_ROOT_USERNAME y MONGO_INITDB_ROOT_PASSWORD para conectarte a la base de datos MongoDB
+
+
+
+#Resumen de lo que hace tu código
+# Tu código en GitHub Actions:
+# Crea dos contenedores:
+# Un contenedor con la imagen node:16 para ejecutar el job test.
+# Un contenedor con la imagen mongo como un servicio para la base de datos MongoDB.
+# Configura variables de entorno para conectarse a la base de datos MongoDB.
+# Crea una instancia de la base de datos MongoDB con un usuario root (root/password) gracias a las variables MONGO_INITDB_ROOT_USERNAME y MONGO_INITDB_ROOT_PASSWORD.
+# Escenarios adicionales
+# Inserción de data con tu código (MongoDB)
+# Con tu configuración actual (MongoDB):
+# No hay pasos explícitos para insertar data en la base de datos.
+# Deberías hacerlo mediante scripts en Node.js que se conecten a MongoDB desde dentro del job.
+# Inserción de data si fuera PostgreSQL
+# Si estuvieras usando PostgreSQL en lugar de MongoDB:
+# Usarías la imagen postgres.
+# La creación de tablas y la inserción de data se haría mediante scripts SQL o migraciones desde el backend.
+# Manejo si ya hay una base de datos creada
+# Si ya hay una base de datos existente en Docker con data:
+# No necesitarías crear los contenedores de la base de datos en GitHub Actions.
+# Configurarías el backend para conectarse a esa base de datos existente
